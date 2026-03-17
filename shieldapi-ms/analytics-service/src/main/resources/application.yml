@@ -60,6 +60,6 @@ management:
     tags:
       application: ${spring.application.name}
 
-springdoc:
-  api-docs:
-    path: /v3/api-docs
+logging:
+  level:
+    org.springframework.web: DEBUG

@@ -11,8 +11,10 @@
         </encoder>
     </appender>
 
+    <springProperty scope="context" name="logstashDestination" source="shieldapi.logging.logstash.destination" defaultValue="localhost:5000"/>
+
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>localhost:5000</destination>
+        <destination>${logstashDestination}</destination>
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
             <providers>
                 <timestamp>

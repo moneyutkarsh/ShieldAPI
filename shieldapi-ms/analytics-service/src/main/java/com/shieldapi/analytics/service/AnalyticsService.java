@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,11 +19,13 @@ public class AnalyticsService {
     @org.springframework.cache.annotation.Cacheable(value = "dashboard-metrics")
     public DashboardDTOs.MetricsDTO getMetrics() {
         long totalThreats = threatMetricRepository.count();
+        long blockedCount = threatMetricRepository.findAll().stream().filter(m -> "CRITICAL".equalsIgnoreCase(m.getSeverity())).count();
         // Since we are decoupling, some metrics like RPM might need a local cache or influxdb, 
         // for now we aggregate from H2 for simplicity.
         return DashboardDTOs.MetricsDTO.builder()
                 .activeThreats(totalThreats)
                 .requestsPerMin(0) // Logic to be implemented or fetched from Edge
+                .blockedToday(blockedCount)
                 .riskScore((int) Math.min(99, totalThreats * 2))
                 .avgLatencyMs(45)
                 .topTargetEndpoint("api/v1/auth/login")
@@ -43,6 +46,14 @@ public class AnalyticsService {
                         .cc("US")
                         .asn("Datacenter")
                         .build())
+                .collect(Collectors.toList());
+    }
+
+    public List<Map<String, Object>> getThreatsAggregation() {
+        return threatMetricRepository.findAll().stream()
+                .collect(Collectors.groupingBy(m -> m.getCategory(), Collectors.counting()))
+                .entrySet().stream()
+                .map(e -> Map.of("name", e.getKey(), "count", e.getValue()))
                 .collect(Collectors.toList());
     }
 }

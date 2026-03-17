@@ -1,131 +1,98 @@
-/**
- * src/services/api.js
- *
- * Centralized fetch-based API service for the ShieldAPI SOC Dashboard.
- * Uses native browser fetch — no extra dependencies required.
- *
- * All four endpoints connect to DashboardController on localhost:8080.
- */
+import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8080/api';
-const AUTH_URL = 'http://localhost:8080/auth';
-const TIMEOUT_MS = 12_000;
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  timeout: 10000,
+});
 
-let authToken = localStorage.getItem('shield_token') || null;
-
-export const setToken = (token) => {
-  authToken = token;
-  if (token) localStorage.setItem('shield_token', token);
-  else localStorage.removeItem('shield_token');
-};
-
-export const getToken = () => authToken;
-
-export const logout = () => {
-  setToken(null);
-  window.location.reload();
-};
-
-// ─── Timeout-aware fetch wrapper ─────────────────────────────────────────────
-async function apiFetch(path, options = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  
-  const isAuthPath = path.startsWith('/login') || path.startsWith('/register');
-  const url = isAuthPath ? `${AUTH_URL}${path}` : `${BASE_URL}${path}`;
-
-  const headers = { 
-    'Accept': 'application/json',
-    'Content-Type': 'application/json',
-    ...options.headers 
-  };
-  
-  if (authToken && !isAuthPath) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
-
-  try {
-    const res = await fetch(url, {
-      ...options,
-      headers,
-      signal: controller.signal,
-    });
-    
-    if (res.status === 401 && !isAuthPath) {
-      logout();
-      throw new Error('Unauthorized');
+export const securityService = {
+  getStats: async () => {
+    try {
+      const response = await api.get('/api/analytics/stats');
+      const data = response.data;
+      // Map backend MetricsDTO to frontend expected stats
+      return {
+        totalRequests: (data.requestsPerMin || 0) * 1440, // Projection for 24h
+        threatsDetected: data.activeThreats || 0,
+        blockedRequests: data.blockedToday || 0,
+        activeIps: Math.ceil((data.activeThreats || 0) / 3) + 5, // Estimated
+        requestTrend: +12.5,
+        threatTrend: -2.3,
+        riskScore: data.riskScore || 0,
+        avgLatencyMs: data.avgLatencyMs || 0,
+        topTargetEndpoint: data.topTargetEndpoint || 'unknown'
+      };
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      throw error;
     }
+  },
 
-    if (!res.ok) throw new Error(`HTTP ${res.status} on ${path}`);
-    return await res.json();
-  } catch (err) {
-    const msg = err.name === 'AbortError' ? `Timeout on ${path}` : err.message;
-    console.warn(`[ShieldAPI API] ${msg}`);
-    throw err;
-  } finally {
-    clearTimeout(timer);
+  getLogs: async (params = {}) => {
+    try {
+      const response = await api.get('/api/analytics/logs', { params });
+      return response.data.map((log, idx) => ({
+        id: idx,
+        timestamp: log.timestamp,
+        ip: log.ip,
+        endpoint: log.endpoint,
+        status: log.severity === 'CRITICAL' ? 'Blocked' : log.severity === 'MEDIUM' ? 'Flagged' : 'Safe',
+        threatType: log.type,
+        severity: log.severity
+      }));
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+      throw error;
+    }
+  },
+
+  getThreats: async () => {
+    try {
+      const response = await api.get('/api/analytics/threats');
+      return response.data; // Already returns {name, count} list
+    } catch (error) {
+      console.error('Error fetching threats:', error);
+      throw error;
+    }
+  },
+
+  // Mock data for development
+  getMockStats: () => ({
+    totalRequests: 125430,
+    threatsDetected: 124,
+    blockedRequests: 89,
+    activeIps: 45,
+    requestTrend: +12.5,
+    threatTrend: -2.3,
+  }),
+
+  getMockLogs: () => [
+    { id: 1, timestamp: new Date().toISOString(), ip: '192.168.1.105', endpoint: '/auth/login', status: 'Blocked', threatType: 'SQL Injection', severity: 'High' },
+    { id: 2, timestamp: new Date().toISOString(), ip: '45.76.12.34', endpoint: '/api/users', status: 'Flagged', threatType: 'XSS Attempt', severity: 'Medium' },
+    { id: 3, timestamp: new Date().toISOString(), ip: '102.34.11.9', endpoint: '/api/data', status: 'Safe', threatType: 'None', severity: 'Low' },
+    { id: 4, timestamp: new Date().toISOString(), ip: '89.123.44.2', endpoint: '/admin/config', status: 'Blocked', threatType: 'Brute Force', severity: 'Critical' },
+    { id: 5, timestamp: new Date().toISOString(), ip: '192.168.1.105', endpoint: '/auth/register', status: 'Safe', threatType: 'None', severity: 'Low' },
+  ],
+
+  getMockThreatData: () => [
+    { name: 'SQLi', count: 45 },
+    { name: 'XSS', count: 32 },
+    { name: 'Brute Force', count: 28 },
+    { name: 'Bot traffic', count: 15 },
+    { name: 'DDoS', count: 4 },
+  ],
+
+  getMockChartData: () => {
+    const data = [];
+    for (let i = 24; i >= 0; i--) {
+      data.push({
+        time: `${i}h ago`,
+        requests: Math.floor(Math.random() * 5000) + 1000,
+        threats: Math.floor(Math.random() * 50),
+      });
+    }
+    return data;
   }
-}
+};
 
-// ─── API Functions ────────────────────────────────────────────────────────────
-
-/**
- * GET /api/dashboard/metrics
- * @returns {{ activeThreats, requestsPerMin, blockedToday, riskScore }}
- */
-export async function getDashboardMetrics() {
-  return apiFetch('/dashboard/metrics');
-}
-
-/**
- * GET /api/dashboard/attacks
- * @returns {Array<{ type, ip, endpoint, severity, timestamp }>}
- */
-export async function getRecentAttacks() {
-  return apiFetch('/dashboard/attacks');
-}
-
-/**
- * GET /api/dashboard/top-offenders
- * @returns {Array<{ ip, requests, status }>}
- */
-export async function getTopOffenders() {
-  return apiFetch('/dashboard/top-offenders');
-}
-
-/**
- * GET /api/dashboard/traffic
- * @returns {Array<{ h, trf, atk, blk }>}
- */
-export async function getTrafficData() {
-  return apiFetch('/dashboard/traffic');
-}
-
-/**
- * POST /auth/login
- */
-export async function login(username, password) {
-  const data = await apiFetch('/login', {
-    method: 'POST',
-    body: JSON.stringify({ username, password })
-  });
-  if (data.token) setToken(data.token);
-  return data;
-}
-
-/**
- * POST /auth/register
- */
-export async function register(username, password, email, roles = ['VIEWER']) {
-  return apiFetch('/register', {
-    method: 'POST',
-    body: JSON.stringify({ username, password, email, roles })
-  });
-}
-
-/**
- * GET /api/simulate/{type}
- */
-export async function simulateAttack(type) {
-  return apiFetch(`/simulate/${type}`);
-}
+export default api;

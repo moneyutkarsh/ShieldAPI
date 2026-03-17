@@ -29,7 +29,7 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "http://localhost:3000"
+            allowedOrigins: "http://localhost:3000, http://localhost:5173"
             allowedMethods:
               - GET
               - POST
@@ -48,20 +48,10 @@ spring:
             - Path=/api/security/**
           filters:
             - JwtAuthenticationFilter
-            - name: CircuitBreaker
-              args:
-                name: securityService
-                fallbackUri: forward:/fallback/security
         - id: analytics-service
           uri: lb://analytics-service
           predicates:
-            - Path=/api/analytics/**
-          filters:
-            - JwtAuthenticationFilter
-            - name: CircuitBreaker
-              args:
-                name: analyticsService
-                fallbackUri: forward:/fallback/analytics
+            - Path=/api/analytics/**, /api/stats, /api/logs, /api/threats
         - id: notification-service
           uri: lb://notification-service
           predicates:
@@ -77,9 +67,12 @@ eureka:
     prefer-ip-address: true
 
 shieldapi:
+  logging:
+    logstash:
+      destination: ${SHIELDAPI_LOGGING_LOGSTASH_DESTINATION:-localhost:5000}
   security:
     jwt:
-      secret: 9a4f2c8d3b7a1e0f4g6h8i2j5k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d
+      secret: ${JWT_SECRET:-9a4f2c8d3b7a1e0f4g6h8i2j5k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d}
 
 management:
   tracing:

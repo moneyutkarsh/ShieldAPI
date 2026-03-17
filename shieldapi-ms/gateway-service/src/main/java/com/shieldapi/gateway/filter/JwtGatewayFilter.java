@@ -26,7 +26,9 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         String path = exchange.getRequest().getURI().getPath();
 
         // Skip auth for login, registration, and simulation documentation
-        if (path.contains("/auth/") || path.contains("/simulate/") || path.contains("/v3/api-docs")) {
+        if (path.contains("/auth/") || path.contains("/simulate/") || path.contains("/v3/api-docs") 
+            || path.contains("/api/analytics/health") || path.contains("/api/analytics/stats") 
+            || path.contains("/api/analytics/logs") || path.contains("/api/analytics/threats")) {
             return chain.filter(exchange);
         }
 

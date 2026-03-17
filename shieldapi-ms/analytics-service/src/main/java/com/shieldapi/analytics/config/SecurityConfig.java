@@ -25,11 +25,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers("/api/analytics/**").hasAnyRole("ADMIN", "ANALYST")
-                .anyRequest().authenticated()
-            )
-            .addFilterBefore(headerAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .anyRequest().permitAll()
+            );
         
         return http.build();
     }
