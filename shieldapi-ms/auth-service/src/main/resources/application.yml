@@ -1,0 +1,51 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/shield_auth
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:password}
+    driverClassName: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+shieldapi:
+  security:
+    jwt:
+      secret: 9a4f2c8d3b7a1e0f4g6h8i2j5k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d
+      expiration: 86400000 # 24 hours
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      type: b3
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs

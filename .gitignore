@@ -1,0 +1,40 @@
+# Java
+**/target/
+**/*.class
+**/*.jar
+**/*.war
+**/*.ear
+**/*.log
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Node.js
+**/node_modules/
+**/dist/
+**/build/
+.npm
+.eslintcache
+
+# IDEs
+.idea/
+*.iml
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+postgres-data/
+elasticsearch-data/
+prometheus-data/
+
+# Env
+.env
